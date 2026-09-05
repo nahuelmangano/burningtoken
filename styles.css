@@ -1,0 +1,120 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #080b16;
+  color: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(45, 212, 191, 0.18), transparent 30%),
+    radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.22), transparent 32%),
+    #080b16;
+}
+
+.hero {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.card {
+  display: grid;
+  width: min(980px, 100%);
+  grid-template-columns: 1fr 0.9fr;
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2rem;
+  background: rgba(15, 23, 42, 0.78);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #5eead4;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 10ch;
+  margin: 0;
+  font-size: clamp(3.5rem, 10vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: -0.07em;
+}
+
+h1 span {
+  display: inline-block;
+  font-size: 0.55em;
+  transform: rotate(-8deg);
+}
+
+.lead {
+  max-width: 34rem;
+  margin: 2rem 0 0;
+  color: #cbd5e1;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.6;
+}
+
+.signature {
+  margin: 2rem 0 0;
+  color: #facc15;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.portrait {
+  margin: 0;
+}
+
+.portrait img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center 25%;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+figcaption {
+  margin-top: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+a {
+  color: #99f6e4;
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding: 1rem;
+  }
+
+  .card {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    border-radius: 1.5rem;
+  }
+
+  .portrait {
+    order: -1;
+  }
+}

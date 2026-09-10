@@ -3,30 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Una pequeña página dedicada a Lionel Messi." />
-    <title>Hola mundo | Messi</title>
+    <meta name="description" content="Probá imágenes y stacks Docker en previews temporales." />
+    <title>Ephemeral Deploy</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="hero">
-      <section class="card" aria-labelledby="title">
-        <div class="copy">
-          <p class="eyebrow">Bienvenido</p>
-          <h1 id="title">Hola mundo <span>👋</span></h1>
-          <p class="lead">Una web simple para saludar y celebrar al mejor jugador argentino.</p>
-          <p class="signature">Vamos, Messi 🇦🇷</p>
+    <main class="shell">
+      <section class="intro">
+        <p class="eyebrow">Temporary preview lab</p>
+        <h1>Probá una imagen.<br /><em>Descartá el resto.</em></h1>
+        <p class="subtitle">Pegá una imagen o un docker-compose.yml y levantá una preview temporal sin instalar nada. Cuando la sesión termina, todo desaparece.</p>
+      </section>
+
+      <section class="workspace" aria-label="Docker preview launcher">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-mode="image" type="button">Una imagen</button>
+          <button class="tab" data-mode="compose" type="button">Docker Compose</button>
         </div>
 
-        <figure class="portrait">
-          <img
-            src="https://commons.wikimedia.org/wiki/Special:FilePath/Lionel%20Messi.jpg?width=1200"
-            alt="Lionel Messi durante un partido con el Barcelona"
-          />
-          <figcaption>
-            Foto: <a href="https://commons.wikimedia.org/wiki/File:Lionel_Messi.jpg" target="_blank" rel="noreferrer">Wonker / Wikimedia Commons</a>
-          </figcaption>
-        </figure>
+        <form id="deploy-form" class="deploy-form">
+          <div id="image-fields">
+            <label for="image">Imagen Docker</label>
+            <div class="input-row"><input id="image" value="nginxdemos/hello:latest" placeholder="usuario/imagen:tag" autocomplete="off" /><button type="submit" id="deploy-button">Deploy temporal <span>↗</span></button></div>
+            <div class="form-footer"><label for="container-port">Puerto interno</label><input id="container-port" type="number" min="1" max="65535" value="80" /><span class="hint">La sesión se elimina después de 2 minutos sin actividad.</span></div>
+          </div>
+
+          <div id="compose-fields" class="hidden">
+            <label for="compose">docker-compose.yml</label>
+            <textarea id="compose" spellcheck="false">services:
+  app:
+    image: nginxdemos/hello:latest
+    ports:
+      - "80:80"</textarea>
+            <div class="compose-actions"><label class="file-button" for="compose-file">Cargar YAML</label><input id="compose-file" type="file" accept=".yml,.yaml,text/yaml" /><button type="submit" id="compose-deploy-button">Deploy stack <span>↗</span></button></div>
+            <label for="env">Variables de entorno <span class="optional">(opcionales, no se guardan)</span></label>
+            <textarea id="env" class="env-input" spellcheck="false" placeholder="DATABASE_URL=postgres://app:app@db:5432/app\nREDIS_URL=redis://redis:6379"></textarea>
+            <p class="hint">Se permite un servicio web con <code>ports</code> y servicios internos como Postgres o Redis. Máximo 4 volúmenes temporales de 128 MB cada uno. Usá <code>- nombre:/ruta</code> dentro del servicio. No se permiten volúmenes del host, modo privilegiado ni <code>build</code>.</p>
+          </div>
+        </form>
+
+        <section id="status-panel" class="status-panel hidden" aria-live="polite">
+          <div class="status-heading"><div><p class="eyebrow">Sesión temporal</p><h2 id="status-title">Preparando...</h2></div><span id="countdown" class="countdown">--:--</span></div>
+          <p id="status-message" class="status-message"></p>
+          <div id="preview-frame" class="preview-frame hidden"><div class="browser-bar"><span></span><span></span><span></span><small>preview temporal</small></div><iframe id="preview" title="Preview del stack Docker"></iframe></div>
+          <details class="logs-panel"><summary>Ver logs del stack</summary><pre id="logs">Esperando logs…</pre></details>
+          <button id="destroy-button" class="destroy-button" type="button">Destruir sesión</button>
+        </section>
       </section>
+      <p class="safety-note">Las sesiones son temporales y tienen límites de memoria, CPU y procesos. Usá imágenes de confianza.</p>
     </main>
+    <script>
+      const form = document.querySelector('#deploy-form'); const button = document.querySelector('#deploy-button'); const composeButton = document.querySelector('#compose-deploy-button'); const tabs = document.querySelectorAll('.tab'); const imageFields = document.querySelector('#image-fields'); const composeFields = document.querySelector('#compose-fields'); const panel = document.querySelector('#status-panel'); const title = document.querySelector('#status-title'); const message = document.querySelector('#status-message'); const countdown = document.querySelector('#countdown'); const frame = document.querySelector('#preview-frame'); const iframe = document.querySelector('#preview'); const logs = document.querySelector('#logs'); const destroy = document.querySelector('#destroy-button'); const composeFile = document.querySelector('#compose-file'); let mode = 'image'; let sessionId = null; let pollTimer = null; let heartbeatTimer = null; let logTimer = null;
+      const labels = { queued: 'En cola', parsing: 'Validando Compose', pulling: 'Descargando imágenes', starting: 'Iniciando servicios', ready: 'Preview lista', error: 'No se pudo iniciar' };
+      tabs.forEach((tab) => tab.addEventListener('click', () => { mode = tab.dataset.mode; tabs.forEach((item) => item.classList.toggle('active', item === tab)); imageFields.classList.toggle('hidden', mode !== 'image'); composeFields.classList.toggle('hidden', mode !== 'compose'); }));
+      composeFile.addEventListener('change', async () => { const file = composeFile.files[0]; if (file) document.querySelector('#compose').value = await file.text(); });
+      function render(session) { panel.classList.remove('hidden'); title.textContent = labels[session.status] || session.status; countdown.textContent = `${Math.floor(session.expiresInSeconds / 60).toString().padStart(2, '0')}:${(session.expiresInSeconds % 60).toString().padStart(2, '0')}`; message.textContent = session.error || (session.status === 'ready' ? `${session.kind === 'compose' ? 'El stack' : session.image} está corriendo en una sesión aislada.` : 'Esto puede tardar unos segundos.'); if (session.status === 'ready') { frame.classList.remove('hidden'); iframe.src = session.previewUrl; button.disabled = false; composeButton.disabled = false; } else if (session.status === 'error') { frame.classList.add('hidden'); button.disabled = false; composeButton.disabled = false; } }
+      async function poll() { if (!sessionId) return; const response = await fetch(`/api/sessions/${sessionId}`); if (!response.ok) { const result = await response.json().catch(() => ({})); title.textContent = 'Sesión no disponible'; message.textContent = result.error || 'El servicio se reinició o la sesión expiró.'; stopTimers(); return; } const session = await response.json(); render(session); await loadLogs(); if (session.status === 'ready' || session.status === 'error') { clearInterval(pollTimer); clearInterval(heartbeatTimer); } }
+      async function loadLogs() { if (!sessionId) return; const response = await fetch(`/api/sessions/${sessionId}/logs`); if (response.ok) logs.textContent = (await response.json()).logs || 'Todavía no hay logs.'; }
+      function stopTimers() { clearInterval(pollTimer); clearInterval(heartbeatTimer); clearInterval(logTimer); }
+      function reset(text = '') { stopTimers(); sessionId = null; if (text) message.textContent = text; button.disabled = false; composeButton.disabled = false; }
+      form.addEventListener('submit', async (event) => { event.preventDefault(); button.disabled = true; composeButton.disabled = true; const isCompose = event.submitter === composeButton || mode === 'compose'; const endpoint = isCompose ? '/api/stacks' : '/api/sessions'; const body = isCompose ? { compose: document.querySelector('#compose').value, env: document.querySelector('#env').value } : { image: document.querySelector('#image').value, port: Number(document.querySelector('#container-port').value) }; let response; try { response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); } catch (error) { panel.classList.remove('hidden'); title.textContent = 'Error de conexión'; message.textContent = 'No se pudo contactar al servidor de despliegue.'; button.disabled = false; composeButton.disabled = false; return; } const result = await response.json(); if (!response.ok) { panel.classList.remove('hidden'); title.textContent = 'Error'; message.textContent = result.error; button.disabled = false; composeButton.disabled = false; return; } sessionId = result.id; logs.textContent = 'Iniciando…'; render(result); pollTimer = setInterval(poll, 1500); heartbeatTimer = setInterval(() => fetch(`/api/sessions/${sessionId}/heartbeat`, { method: 'POST' }), 15000); logTimer = setInterval(loadLogs, 2500); });
+      destroy.addEventListener('click', async () => { if (sessionId) await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE', keepalive: true }); reset('Sesión destruida.'); frame.classList.add('hidden'); }); window.addEventListener('beforeunload', () => { if (sessionId) fetch(`/api/sessions/${sessionId}`, { method: 'DELETE', keepalive: true }); });
+    </script>
   </body>
 </html>

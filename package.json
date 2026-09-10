@@ -1,0 +1,13 @@
+{
+  "name": "ephemeral-deploy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Temporary Docker image preview runner",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "dockerode": "^4.0.7",
+    "http-proxy": "^1.18.1",
+    "yaml": "^2.8.1"
+  }
+}
